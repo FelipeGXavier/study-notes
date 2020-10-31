@@ -18,8 +18,6 @@ Muitas vezes sentimos a necessidade de usar o conceito de cross-database, isto �
 - json
 - char
 
-*Sintaxe:*
-
 **Criar uma tabela**
 <pre><code>
 CREATE TABLE schema.character_tests (
@@ -48,10 +46,8 @@ Renomear uma coluna
 
 Adicionar constraint
 
-<pre><code>
-ALTER TABLE distributors ADD CONSTRAINT fk_distribuitors_address
-FOREIGN KEY (address) REFERENCES addresses (address) MATCH FULL;
-</code></pre>
+<pre><code>ALTER TABLE distributors ADD CONSTRAINT fk_distribuitors_address
+FOREIGN KEY (address) REFERENCES addresses (address) MATCH FULL;</code></pre>
 
 ``ALTER TABLE distributors ADD PRIMARY KEY (dist_id);``
 
@@ -133,6 +129,8 @@ String para intervalo
  '3 month'::interval;</code>
 </pre>
 
+***
+
 ## Expressões
 
 **Expressões Condicionais**:
@@ -154,7 +152,7 @@ Primeiro valor não nulo na expressão, caso todos forem nulos returna nulo. **C
 
 Retorna nulo se o primeiro elemento for igual ao segundo, caso contrário retorna primeiro elemento. **NULLIF**
 
-``SELECT NULLIF (1, 1);`` &#8594; null
+``SELECT NULLIF (1, 1);`` &#8594; null\
 ``SELECT NULLIF (1, 2);`` &#8594; 1
 
 Maior elemento em uma lista. **GREATEST** e **LEAST**
@@ -186,6 +184,98 @@ WHERE
 	customer_id IN (1, 2);</code>
 </pre>
 
-**ANY**: Operador compara um valor a um conjunto de valores retornados por uma subconsulta, tal forma que a subconjunta deve retornar exatamente uma coluna e preceda por um operador de comparação. Seguindo a forma *expresion operator ANY(subquery)*
+**ANY**: Operador compara um valor a um conjunto de valores retornados por uma subconsulta, tal forma que a subconsulta deve retornar exatamente uma coluna e preceda por um operador de comparação. Seguindo a forma *expresion operator ANY(subquery)*
 
-**SOME**:
+<pre><code>SELECT title
+FROM film
+WHERE length >= ANY(
+    SELECT MAX( length )
+    FROM film
+    INNER JOIN film_category USING(film_id)
+    GROUP BY  category_id );</code></pre>
+
+**ALL**: Permite consultar dados comparando um valor com uma lista de valores retornados por uma subconsulta.
+
+- *nome_da_coluna* > ALL (subconsulta) a expressão é avaliada como verdadeira se um valor for maior do que o maior valor retornado pela subconsulta.
+
+<pre><code>SELECT film_id,
+       title,
+       LENGTH
+FROM film
+WHERE LENGTH > ALL
+    (SELECT ROUND(AVG (LENGTH),2)
+     FROM film
+     GROUP BY rating)
+ORDER BY LENGTH;</code></pre>
+
+***
+
+## Transações
+
+O ponto essencial de uma transação é que ela agrupa várias etapas em uma única operação tudo ou nada. Os estados intermediários entre as etapas não são visíveis para outras transações simultâneas e, se ocorrer alguma falha que impeça a conclusão da transação, nenhuma das etapas afetará o banco de dados.
+
+**BEGIN**: Indicia ínicio de uma transação 
+**COMMIT**: Define o ponto onde as alterações são de fato efetivadas no banco de dados
+**ROLLBACK**: Volta ao último estado do banco de dados
+**SAVEPOINT**: Pontos de "checkpoint" onde podemos voltar com *rollback* caso alguma operação falhe
+
+<pre><code>BEGIN;
+UPDATE accounts SET balance = balance - 100.00
+    WHERE name = 'Alice';
+SAVEPOINT my_savepoint;
+UPDATE accounts SET balance = balance + 100.00
+    WHERE name = 'Bob';
+ROLLBACK TO my_savepoint;
+UPDATE accounts SET balance = balance + 100.00
+    WHERE name = 'Wally';
+COMMIT;</code></pre>
+
+***
+
+## Joins
+
+Através de operações de conjuntos podemos relacionar entidades.
+
+**INNER JOIN**: Operação entre intersecção de dois conjuntos. Compara o valor da primeira coluna da primeira tabela com o valor da segunda coluna de cada linha da segunda tabela. Se esses valores forem iguais, a junção interna cria uma nova linha que contém colunas de ambas as tabelas e adiciona essa nova linha ao conjunto de resultados.
+
+<pre><code>SELECT *
+FROM table_1
+INNER JOIN table_2 ON table_1.id = table_2.id</code></pre>
+
+<div style="text-align: center"><img src="https://images.squarespace-cdn.com/content/v1/5732253c8a65e244fd589e4c/1464122775537-YVL7LO1L7DU54X1MC2CI/ke17ZwdGBToddI8pDm48kMjn7pTzw5xRQ4HUMBCurC5Zw-zPPgdn4jUwVcJE1ZvWMv8jMPmozsPbkt2JQVr8L3VwxMIOEK7mu3DMnwqv-Nsp2ryTI0HqTOaaUohrI8PIvqemgO4J3VrkuBnQHKRCXIkZ0MkTG3f7luW22zTUABU/image-asset.png?format=300w"></div>
+
+**LEFT JOIN**: Feita a comparação entre as colunas das duas tabelas e caso esses valores forem iguais a junção à esquerda cria uma nova linha que contém colunas de ambas as tabelas e adiciona essa nova linha ao conjunto de resultados. Caso os valores não sejam iguais, a junção à esquerda também cria uma nova linha que contém colunas de ambas as tabelas e a adiciona ao conjunto de resultados, caso não exista dados para coluna a direita será prenchido como null.
+
+<pre><code>SELECT *
+FROM left_table
+INNER JOIN right_table ON left_table.id = right_table.id</code></pre>
+
+<div style="text-align: center"><img src="https://images.squarespace-cdn.com/content/v1/5732253c8a65e244fd589e4c/1464122797709-C2CDMVSK7P4V0FNNX60B/ke17ZwdGBToddI8pDm48kMjn7pTzw5xRQ4HUMBCurC5Zw-zPPgdn4jUwVcJE1ZvWEV3Z0iVQKU6nVSfbxuXl2c1HrCktJw7NiLqI-m1RSK4p2ryTI0HqTOaaUohrI8PIO5TUUNB3eG_Kh3ocGD53-KZS67ndDu8zKC7HnauYqqk/image-asset.png?format=300w"></div>
+
+**RIGHT JOIN**: Funciona de forma analoga ao left join considerando os elementos na tabela da direita.
+
+<pre><code>SELECT *
+FROM right_table
+RIGHT JOIN left_table ON right_table.id = left_table.id</code></pre>
+
+<div style="text-align: center"><img src="https://images.squarespace-cdn.com/content/v1/5732253c8a65e244fd589e4c/1464122744888-MVIUN2P80PG0YE6H12WY/ke17ZwdGBToddI8pDm48kMjn7pTzw5xRQ4HUMBCurC5Zw-zPPgdn4jUwVcJE1ZvWlExFaJyQKE1IyFzXDMUmzc1HrCktJw7NiLqI-m1RSK4p2ryTI0HqTOaaUohrI8PI-FpwTc-ucFcXUDX7aq6Z4KQhQTkyXNMGg1Q_B1dqyTU/image-asset.png?format=300w"></div>
+
+**FULL JOIN**: Retorna um conjunto de resultados que contém todas as linhas das tabelas esquerda e direita, com as linhas correspondentes de ambos os lados, se disponíveis. Caso não haja correspondência, as colunas da tabela serão preenchidas com NULL.
+
+<pre><code>SELECT a,
+       fruit_a,
+       b,
+       fruit_b
+FROM basket_a
+FULL OUTER JOIN basket_b ON fruit_a = fruit_b;</code></pre>
+
+<div style="text-align: center"><img src="https://images.squarespace-cdn.com/content/v1/5732253c8a65e244fd589e4c/1464122981217-RIYH5VL2MF1XWTU2DKVQ/ke17ZwdGBToddI8pDm48kMjn7pTzw5xRQ4HUMBCurC5Zw-zPPgdn4jUwVcJE1ZvWEV3Z0iVQKU6nVSfbxuXl2c1HrCktJw7NiLqI-m1RSK4p2ryTI0HqTOaaUohrI8PIO5TUUNB3eG_Kh3ocGD53-KZS67ndDu8zKC7HnauYqqk/image-asset.png?format=300w"></div>
+
+
+**UNION**: Combina conjuntos de resultados de duas ou mais instruções SELECT em um único conjunto de resultados.
+
+<pre><code>SELECT select_list_1
+FROM table_expresssion_1
+UNION
+SELECT select_list_2
+FROM table_expression_2</code></pre>
