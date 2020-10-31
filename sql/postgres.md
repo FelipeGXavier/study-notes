@@ -315,8 +315,8 @@ HAVING CONDITION;</code></pre>
 
 ## Backup
 
-Para manipular processos de backup pode ser utilizado o utilitário *pg_dump*\
-Para fazer backup de um banco para arquivo:\
-``pg_dump name_of_database > name_of_backup_file``
-Para restaurar um backup para um banco (banco deve estar criado nessa etpaa):\
-``pg_dump postgres > postgres_db.bak``
+Para manipular processos de backup pode ser utilizado o utilitário *pg_dump*  
+Para fazer backup de um banco para arquivo:  
+``pg_dump name_of_database > name_of_backup_file``  
+Para restaurar um backup para um banco (banco deve estar criado nessa etapa):  
+``psql empty_database < backup_file``
