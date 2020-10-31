@@ -157,8 +157,7 @@ Retorna nulo se o primeiro elemento for igual ao segundo, caso contrário retorn
 
 Maior elemento em uma lista. **GREATEST** e **LEAST**
 
-``SELECT GREATEST(1,2, 3, 4);``
-
+``SELECT GREATEST(1,2, 3, 4);``\
 ``SELECT GREATEST(current_date, current_date + 10);``
 
 **Expressões de subconsulta**:
@@ -214,9 +213,9 @@ ORDER BY LENGTH;</code></pre>
 
 O ponto essencial de uma transação é que ela agrupa várias etapas em uma única operação tudo ou nada. Os estados intermediários entre as etapas não são visíveis para outras transações simultâneas e, se ocorrer alguma falha que impeça a conclusão da transação, nenhuma das etapas afetará o banco de dados.
 
-**BEGIN**: Indicia ínicio de uma transação 
-**COMMIT**: Define o ponto onde as alterações são de fato efetivadas no banco de dados
-**ROLLBACK**: Volta ao último estado do banco de dados
+**BEGIN**: Indicia ínicio de uma transação\ 
+**COMMIT**: Define o ponto onde as alterações são de fato efetivadas no banco de dados\
+**ROLLBACK**: Volta ao último estado do banco de dados\
 **SAVEPOINT**: Pontos de "checkpoint" onde podemos voltar com *rollback* caso alguma operação falhe
 
 <pre><code>BEGIN;
@@ -279,3 +278,45 @@ FROM table_expresssion_1
 UNION
 SELECT select_list_2
 FROM table_expression_2</code></pre>
+
+***
+
+## Agregações
+
+As funções agregadas realizam um cálculo em um conjunto de linhas e retornam uma única linha. Para utilizar funções de agragação você é limita a utilizar dentro do escopo de um select ou having para comparação. Princiapis funções de agregação:
+
+- avg()
+- max()
+- count()
+- min()
+- sum()
+
+<pre><code>SELECT ROUND(AVG(replacement_cost), 2) avg_replacement_cost
+FROM film;</code></pre>
+
+**Agrupamento**
+
+A cláusula *GROUP BY* divide as linhas retornadas da instrução SELECT em grupos. Para cada grupo, você pode aplicar uma função agregada, por exemplo, SUM () para calcular a soma dos itens ou COUNT () para obter o número de itens nos grupos.
+
+<pre><code>SELECT customer_id,
+       SUM (amount)
+FROM payment
+GROUP BY customer_id;</code></pre>
+
+Para comparação entre grupos deve-se utilizar a cláusala **HAVING**, enquanto **WHERE** é utilizado para comparação de linhas.
+
+<pre><code>SELECT column1,
+       aggregate_function (column2)
+FROM TABLE_NAME
+GROUP BY column1
+HAVING CONDITION;</code></pre>
+
+***
+
+## Backup
+
+Para manipular processos de backup pode ser utilizado o utilitário *pg_dump*\
+Para fazer backup de um banco para arquivo:
+``pg_dump name_of_database > name_of_backup_file``
+Para restaurar um backup para um banco (banco deve estar criado nessa etpaa):
+``pg_dump postgres > postgres_db.bak``
