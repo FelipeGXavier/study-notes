@@ -144,6 +144,9 @@ Para escrever um documento. Requisição é recebida por um primary shard e enca
 
 **Optimistic concurrency control:** Previne uma versão antiga de um documento sobrescreva uma nova versão, mantém a sequência correta de operações. 
 
+- if_primary_term
+- if_seq_no
+
 Atualiza documentos por query:
 <pre><code>POST /products/_update_by_query
 {
@@ -177,10 +180,272 @@ Deleta documentos por query:
 
 **Batch processing:** 
 
-*_bulk*: index, create (falha se tive rum documento com mesmo id), update, delete
+Se umaoperação falhar não irá interromper as demais.
+
+*_bulk*: index, create (falha se tiver um documento com mesmo id), update, delete
 
 <pre><code>POST _bulk
 { "index": { "_index": "products", "_id": 200 } }
 { "name: "Expresso Machine",  "price": 199, "in_stock": 5 }
 { "create: { "index": { "_index": "products", "_id": 200 } }
 { "name: "Mil Frather", "price": 149, "in_stock": 14 }</code></pre>
+
+<pre><code>POST _bulk/products
+{ "update": {"_id": 200 } }
+{ "doc: { "price": 10 } }
+{ "delete: { "index": { "_id": 200 } }</code></pre>
+
+**Importando data com curl:**
+
+<pre><code>curl -H "Content-type: application/x-ndjson" -XPOST http://localhost:9200/products/_bulk --data-binary "@products-bulk.json"</code></pre>
+
+**Analysis:** Quando um documento é indexado ele passa pelo processo do analyzer antes de ser armazenado.
+
+1. Character filters: Adiciona, remove ou altera caracteres, analyzers contém zero ou mais character filters. São aplicados na ordem que forem especificados, e.g. *html_strip*
+2. Tokenizer: Um analyzer contém apenas um tokenizer. Responsável por separar uma string em tokens.
+3. Token filters: Recebe os tokens do tokenizer. Pode remover, adicionar ou alterar tokens. Um analyzer pode ter zero ou mais token filters. e.g. *lowercase*
+
+<img src="../assets/es_01.png">
+
+Elasticsearch possui vários analyzers nativamente, characters filters, tokenizer e token filters. Sendo possível criar um customizado.
+
+Retorna a forma como o analyzer avalia a sentença: 
+
+<pre><code>POST _analyze
+{
+  "text": "2 guys walk into a bar, but the third... DUCKS! :-)",
+  "analyzer": "standard"
+}</code></pre>
+
+<pre><code>POST _analyze
+{
+  "text": "2 guys walk into a bar, but the third... DUCKS! :-)",
+  "char_filter": [],
+  "tokenizer": "standard",
+  "filter": ["lowercase"]
+}</code></pre>
+
+**Inverted indices:** Mapeamento entre termos e documentos que contenham eles. Termos são os tokens do analyzer. O Elasticsearch usa uma estrutura de dados chamada índice invertido que oferece suporte a pesquisas de texto completo muito rápidas. Um índice invertido lista cada palavra única que aparece em qualquer documento e identifica todos os documentos em que cada palavra ocorre. Cada campos textual tem seu próprio índice invertido. Criados e gerenciados pelo Apache Lucene.
+
+<img src="../assets/es_02.png">
+
+**Mapping:** Define uma estrutrua para um documento, seus campos e tipo de dado. Configuração de como os valores são indexados. Comparando ao banco de dados relacional seria como o schema de uma tabela. Mapping de um documento pode ser explícito, definindo manualmente os tipos e valores, ou dinâmico onde o Elasticsearch gerará o mapping quando os documentos são indexados.
+
+<img src="../assets/es_03.png">
+
+**Tipos de dados**: <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html">Documentação</a>
+
+Alguns casos:
+
+- nested (consulta de objetos, arrays de forma individual)
+- object
+- keyword (busca por valores exatos, não é divdido em outros tokens, mantém o campo como um único)
+- text (sem necessariamente serem exatos)
+
+Análise de como campos marcados como keyword são análisados.
+
+<pre><code>POST _analyze
+{
+  "text": "2 guys walk into a bar, bar the third... DUCKS! :-)",
+  "analyzer": "keyword"
+}</code></pre>
+
+Resultado:
+
+<pre><code>{
+  "tokens" : [
+    {
+      "token" : "2 guys walk into a bar, bar the third... DUCKS! :-)",
+      "start_offset" : 0,
+      "end_offset" : 51,
+      "type" : "word",
+      "position" : 0
+    }
+  ]
+}</code></pre>
+
+Análise padrão:
+
+<pre><code>POST _analyze
+{
+  "text": "2 guys walk into a bar, bar the third... DUCKS! :-)",
+  "analyzer": "keyword"
+}</code></pre>
+
+Resultado: 
+
+<pre><code>{
+  "tokens" : [
+    {
+      "token" : "2",
+      "start_offset" : 0,
+      "end_offset" : 1,
+      "type" : "<NUM>",
+      "position" : 0
+    },
+    {
+      "token" : "guys",
+      "start_offset" : 2,
+      "end_offset" : 6,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    },
+    {
+      "token" : "walk",
+      "start_offset" : 7,
+      "end_offset" : 11,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    },
+    {
+      "token" : "into",
+      "start_offset" : 12,
+      "end_offset" : 16,
+      "type" : "<ALPHANUM>",
+      "position" : 3
+    },
+    {
+      "token" : "a",
+      "start_offset" : 17,
+      "end_offset" : 18,
+      "type" : "<ALPHANUM>",
+      "position" : 4
+    },
+    {
+      "token" : "bar",
+      "start_offset" : 19,
+      "end_offset" : 22,
+      "type" : "<ALPHANUM>",
+      "position" : 5
+    },
+    {
+      "token" : "bar",
+      "start_offset" : 24,
+      "end_offset" : 27,
+      "type" : "<ALPHANUM>",
+      "position" : 6
+    },
+    {
+      "token" : "the",
+      "start_offset" : 28,
+      "end_offset" : 31,
+      "type" : "<ALPHANUM>",
+      "position" : 7
+    },
+    {
+      "token" : "third",
+      "start_offset" : 32,
+      "end_offset" : 37,
+      "type" : "<ALPHANUM>",
+      "position" : 8
+    },
+    {
+      "token" : "ducks",
+      "start_offset" : 41,
+      "end_offset" : 46,
+      "type" : "<ALPHANUM>",
+      "position" : 9
+    }
+  ]
+}</code></pre>
+
+**Type coersion:** Elasticsearch pode fazer a conversão entre alguns tipos, e.g. um campo notado como float pode receber um float em forma de string que ainda será aceito pela coerção do tipo. Coerção de tipos não é utilizado para o mapping dinâmico. Quando feita consulta em documentos o tipo pode ser armazenado com ostring, como nesse último, apesar de que internamente no Apache Lucene ele será tratado como float. Caso o tipo seja importante para a aplicação pode ser desabilitado a coerção de tipos ou definir o mapping de forma explícita.
+
+**Explicit Mapping:** 
+
+<pre><code>PUT /reviews
+{
+  "mappings": {
+    "properties": {
+      "rating": { "type": "float"},
+      "content": { "type": "text"},
+      "product_id": {"type": "integer" },
+      "author": { 
+        "properties": {
+          "first_name": {"type": "text" },
+          "last_name": {"type": "text" },
+          "email": {"type": "keyword" }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Adicionar mapping para um index: 
+
+<pre><code>PUT /reviews/_mapping
+{
+  "mappings": {
+    "properties": {
+      "created_at": { "type": "date"}
+    }
+  }
+}</code></pre>
+
+Retorna mapping de um index:
+``GET /reviews/_mapping``
+
+**Dates:** Podem ser armazenadas de três formas, em strings formatadas para uma data, como milisegundo em um long e em segundos desde a época em um integer.
+
+- date (data com tempo, sem tempo e milisegundos desde a época)
+
+Apenas data:
+
+<pre><code>PUT /reviews/_doc/2
+{
+  "rating": 4.5,
+  "content": "Not bad. Not bad at all!",
+  "product_id": 123,
+  "created_at": "2015-03-27",
+  "author": {
+    "first_name": "Average",
+    "last_name": "Joe",
+    "email": "avgjoe@example.com"
+  }
+}</code></pre>
+
+Data e tempo:
+<pre><code>PUT /reviews/_doc/3
+{
+  "rating": 3.5,
+  "content": "Could be better",
+  "product_id": 123,
+  "created_at": "2015-04-15T13:07:41Z",
+  "author": {
+    "first_name": "Spencer",
+    "last_name": "Pearson",
+    "email": "spearson@example.com"
+  }
+}</code></pre>
+
+Com timezone:
+
+<pre><code>PUT /reviews/_doc/4
+{
+  "rating": 5.0,
+  "content": "Incredible!",
+  "product_id": 123,
+  "created_at": "2015-01-28T09:21:51+01:00",
+  "author": {
+    "first_name": "Adam",
+    "last_name": "Jones",
+    "email": "adam.jones@example.com"
+  }
+}</code></pre>
+
+Como timestamp (milisegundos desde a eṕoca)
+<pre><code>PUT /reviews/_doc/5
+{
+  "rating": 4.5,
+  "content": "Very useful",
+  "product_id": 123,
+  "created_at": 1436011284000,
+  "author": {
+    "first_name": "Taylor",
+    "last_name": "West",
+    "email": "twest@example.com"
+  }
+}</code></pre>
+
+https://www.elastic.co/guide/en/elasticsearch/guide/current/_finding_exact_values.html
+
