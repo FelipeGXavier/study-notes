@@ -179,8 +179,8 @@ Deleta documentos por query:
 
 *_bulk*: index, create (falha se tive rum documento com mesmo id), update, delete
 
-POST _bulk
+<pre><code>POST _bulk
 { "index": { "_index": "products", "_id": 200 } }
 { "name: "Expresso Machine",  "price": 199, "in_stock": 5 }
 { "create: { "index": { "_index": "products", "_id": 200 } }
-{ "name: "Mil Frather", "price": 149, "in_stock": 14 }
+{ "name: "Mil Frather", "price": 149, "in_stock": 14 }</code></pre>
