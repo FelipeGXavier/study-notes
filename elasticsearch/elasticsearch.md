@@ -79,7 +79,9 @@ Retorna documento pelo id:
 Atualiza um documento:
 <pre><code>POST /products/_update/1
 {
-  "in_stock": 0
+  "doc": {
+    "in_stock": 0
+  }
 }</code></pre> 
 
 **Scripting:** Possibilita escrever uma lógica diferente acessando os valores de um documento
@@ -106,7 +108,7 @@ Atualiza um documento junto com um parâmetro:
 }</code></pre> 
 
 
-Faz um upsert, caso o documento exista aumenta o estoque, caos contrário insere o documento:
+Faz um upsert, caso o documento exista aumenta o estoque, caso contrário insere o documento:
 <pre><code>POST /products/_update/1
 {
   "script": {
@@ -180,7 +182,7 @@ Deleta documentos por query:
 
 **Batch processing:** 
 
-Se umaoperação falhar não irá interromper as demais.
+Se uma operação falhar não irá interromper as demais.
 
 *_bulk*: index, create (falha se tiver um documento com mesmo id), update, delete
 
@@ -269,7 +271,7 @@ Análise padrão:
 <pre><code>POST _analyze
 {
   "text": "2 guys walk into a bar, bar the third... DUCKS! :-)",
-  "analyzer": "keyword"
+  "analyzer": "standard"
 }</code></pre>
 
 Resultado: 
@@ -375,15 +377,48 @@ Adicionar mapping para um index:
 
 <pre><code>PUT /reviews/_mapping
 {
-  "mappings": {
-    "properties": {
-      "created_at": { "type": "date"}
-    }
+  "properties": {
+    "created_at": { "type": "date"}
   }
 }</code></pre>
 
 Retorna mapping de um index:
 ``GET /reviews/_mapping``
+
+**Multi mapping:** Um atributo pode ser definido com mais de um tipo e utilizado dependendo do contexto, isso pode ser útil em um campo de string por exemplo, onde em momentos queremos tratar ele como keyword, sendo exato, e para busca textual por completo como text. A definição de multi-mapping é dada pela propriedade fields.
+
+
+<pre><code>PUT my_index
+{
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "city": {
+          "type": "text",
+          "fields": {
+            "raw": { 
+              "type":  "keyword"
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Acessando pelo valor padrão, text, e pelo raw que é keyword:
+
+<pre><code>GET my_index/_search
+{
+  "query": {
+    "match": {
+      "city": "york" 
+    }
+  },
+  "sort": {
+    "city.raw": "asc" 
+  },
+}</code></pre>
 
 **Dates:** Podem ser armazenadas de três formas, em strings formatadas para uma data, como milisegundo em um long e em segundos desde a época em um integer.
 
@@ -447,5 +482,204 @@ Como timestamp (milisegundos desde a eṕoca)
   }
 }</code></pre>
 
-https://www.elastic.co/guide/en/elasticsearch/guide/current/_finding_exact_values.html
+**Parâmetros para mapping:** 
+
+- format (utilizado para customizar o formato de uma data, DataFormatter Java)
+
+<pre><code>PUT /sales
+{
+  "mappings": {
+    "properties": {
+      "purchaed_at": {
+        "type": "date",
+        "format": "dd/MM/yyyy"
+      }
+    }
+  }
+}</code></pre>
+
+- coerce (Habilita ou desabilitar coerção de tipos)
+
+<pre><code>PUT /sales
+{
+  "mappings": {
+    "properties": {
+      "amount": {
+        "type": "float",
+        "coerce": false
+      }
+    }
+  }
+}</code></pre>
+
+- norms (fatores de normalização para score de relevância, campos que não são utilizados para o score de relevância, capos que são utilizados apenas para ordenar e agregações)
+
+<pre><code>PUT /sales
+{
+  "mappings": {
+    "properties": {
+      "tags": {
+        "type": "float",
+        "norms": false
+      }
+    }
+  }
+}</code></pre>
+
+- index (desabilita a indexação para um campo, ele será armazenado, mas não tem efeito prático para consultas)
+
+<pre><code>PUT /sales
+{
+  "mappings": {
+    "properties": {
+      "server_id": {
+        "type": "integer",
+        "index": false
+      }
+    }
+  }
+}</code></pre>
+
+- null_values (valores nulos não podem ser indexados ou consultados, substituído pelo valor definido)
+
+<pre><code>PUT /sales
+{
+  "mappings": {
+    "properties": {
+      "partner_id": {
+        "type": "keyword",
+        "null_value": "NULL"
+      }
+    }
+  }
+}</code></pre>
+
+**Reindexando documentos para outro index:**
+
+1. Criar um novo índice
+
+<pre><code>PUT /reviews_new
+{
+  "mappings": {
+    "properties": {
+      "rating": { "type": "float"},
+      "content": { "type": "text"},
+      "product_id": {"type": "keyword" },
+      "author": { 
+        "properties": {
+          "first_name": {"type": "text" },
+          "last_name": {"type": "text" },
+          "email": {"type": "keyword" }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+2. Reindexando com a api _reindex
+
+<pre><code>POST _reindex
+{
+  "source": {
+    "index": "reviews"
+  },
+  "dest": {
+    "index": "reviews_new"
+  },
+  "script": {
+    "source": """
+      if(ctx._source.product_id != null){
+        ctx._source.product_id = ctx._source.product_id.toString();
+      }
+    """
+  }
+}</code></pre>
+
+Note que é necessário utilizar um script para converter o id do produto para um string o que antes era um integer, isso é necessário pois apenas o fato de reindexar um documento não implica nos documentos já existentes.
+
+Com a API de _index podemos reindexar documentos que atendem uma query, não incluir algum campo do documento no novo índice.
+
+<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html">Documentação</a>
+
+**Configurando dynamic mapping:** Quando criamos um índice com dynamic mapping desligado ele somente irá indexar os campos explícitos, os demais campos serão aceitos ao indexar um documento, mas não podem ser utilizados para consulta, por exemplo.
+
+<pre><code>PUT /people
+{
+  "mappings": {
+    "dynamic": false
+    "properties": {
+      "first_name": {
+        "type": "text
+      }
+    }
+  }
+}</code></pre>
+
+Para rejeitar documentos que estejam fora do mapping definido é necessário mudar o valor de dynamic para *"strict"*
+
+**Stemming:** Processo de reduzir uma palavra para sua forma "raiz". O processo de stemming garante que as variações de uma palavra possam ser consultadas em um contexto, e.g. walking e walked pode virar walk.
+
+**Stop word:** Palavras que são filtradas fora durante a análise do texto, e.g. "a", "o", "de", "da".
+
+<img src="../assets/es_04.png">
+
+**Analyzers:**
+
+- standard (separa o texto e remove pontuações)
+  - standard tokenizer;
+  - letras em minúsculo pelo token filter;
+  - stop token filter, desabilitado por padrão;
+  - "Is that Peter's cute-looking dog?" --> ["is", "that", "peter's", "cute", "looking", "dog"]
+- simple (separa em token quando encontra qualquer coisa que não seja uma letra)
+- whitespace (separa em token quando encontra um espaço, não passa pelo processo de converter o texto para letra minúsculas)
+- keyword (mantém o texto intacto)
+- pattern (define um regex para separar os tokens)
+
+Criando um analyzer customizado:
+<pre><code>PUT /products
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "remove_english_stop_words": {
+          "type": "standard",
+          "stopwords": "_english_"
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Utilizando o analyzer
+<pre><code>PUT /products/_mapping
+{
+  "properties": {
+    "description": {
+      "type": "text",
+      "analyzer": "remove_english_stop_words"
+    }
+  }
+}</code></pre>
+
+Exemplo para um analyzer com diferentes stopwords:
+<pre><code>PUT /my-index-000001
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "default": {
+          "tokenizer": "whitespace",
+          "filter": [ "my_custom_stop_words_filter" ]
+        }
+      },
+      "filter": {
+        "my_custom_stop_words_filter": {
+          "type": "stop",
+          "ignore_case": true,
+          "stopwords": [ "and", "is", "the" ]
+        }
+      }
+    }
+  }
+}</code></pre>
 
