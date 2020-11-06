@@ -857,8 +857,6 @@ Consultando com wildcards:
   }
 }</code></pre>
 
-***
-
 Venda menor que dez:
 
 <pre><code>GET /products/_search
