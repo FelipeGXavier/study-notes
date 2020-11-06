@@ -683,3 +683,437 @@ Exemplo para um analyzer com diferentes stopwords:
   }
 }</code></pre>
 
+Para atualizar um analyzer depois de um índice criado é necessário que o mesmo esteja fechado, entende-se por fechado como um índice que não recebe nem escreve dados. 
+
+Fechando um índice: 
+
+``POST /my-index-000001/_close``
+
+Atualizando um analyzer (utiliza a mesma estrutura antes declarada): 
+
+<pre><code><pre><code>PUT /my-index-000001/_settings
+{
+  "analysis": {
+    "analyzer": {
+      "default": {
+        "tokenizer": "standard",
+        "filter": [ "my_custom_stop_words_filter" ]
+      }
+    },
+    "filter": {
+      "my_custom_stop_words_filter": {
+        "type": "stop",
+        "ignore_case": true,
+        "stopwords": [ "and", "is", "the", "an", "on"]
+      }
+    }
+  }
+}</code></pre></code></pre>
+
+Abrindo um índice: 
+
+``POST /my-index-000001/_open``
+
+Após ter alterado um analyzer documentos antigos ainda estarão sendo tratados como antigo, para isso podemos atualizar os documentos da seguinte forma:
+
+``POST /my-index-000001/_update_by_query?conflicts=proceed``
+
+**Query DSL:** 
+
+Existem dois principais tipos de queries, leaf queries e compound queries.
+
+<img src="../assets/es_05.png">
+
+Exemplo básico de uma leaft query:
+
+<pre><code>GET /product/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}</code></pre>
+
+- match_all retorna todos documentos
+
+Fluxo de uma busca em cluster com três nós: 
+
+<img src="../assets/es_06.png">
+
+
+Detalhando dados sobre a consulta:
+
+<pre><code>GET /product/1/_explain
+{
+  "query": {
+    "term": {
+      "name": "lobster"
+    }
+  }
+}</code></pre>
+
+Uma consulta pode ser executada em dois contexto, *query context* e *filter context*.
+
+**Query context:** O quão bem os documentos atendem a consulta.?
+
+**Filter context:** Esses documentos atendem essa consulta? (Sem score de relevância, já que o documento atende a consulta ou não), e.g. filtar por datas, status, período.
+
+**Full text queries vs term level queries:** 
+
+- term queries funcionam como consultas exatas, e.g busca por inteiros, datas e não por sentenças
+- full text queries são analisadas e então retornam os documentos por sua relevância
+
+Exemplo de term query: 
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "term": {
+      "name": "lobster"
+    }
+  }
+}</code></pre>
+
+Note que será feita a consulta como os dados estão armazenados no índice invertido e não o que é retornado no *_source* em si.
+
+Exemplo de full text query: 
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "match": {
+      "name": "lobster"
+    }
+  }
+}</code></pre>
+
+Term query com múltiplos campos:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "terms": {
+      "tags.keyword": ["lobster", "soup"]
+    }
+  }
+}</code></pre>
+
+*Similiar a cláusala IN em bancos relacionais*
+
+Consultando por um grupos de ID's
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "ids":  {
+      "values": [1, 2, 3]
+    }
+  }
+}</code></pre>
+
+Consultando por período:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "range": {
+      "in_stock": {
+        "gte": 1,
+        "lte": 5 
+      }
+    }
+  }
+}</code></pre>
+
+Consultando documento com campos não nulos:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "exists": {
+      "field": "tags"
+    }
+  }
+}</code></pre>
+
+Consultada beaseada em prefixos:
+
+<pre><code>GET /product/_search
+{
+  "query": {
+    "prefix": {
+      "tags.keyword": "Vege"
+    }
+  }
+}</code></pre>
+
+Consultando com wildcards: 
+
+<pre><code>GET /product/_search
+{
+  "query": {
+    "wildcard": {
+      "tags.keyword": "Ve*"
+    }
+  }
+}</code></pre>
+
+***
+
+Venda menor que dez:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "range": {
+      "sold": {
+        "lt": 10
+      }
+    }
+  }
+}</code></pre>
+
+Venda menor que trinta e maior ou igual a dez:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "range": {
+      "sold": {
+        "lt": 30,
+        "gte": 10
+      }
+    }
+  }
+}</code></pre>
+
+Com tag igual a Meat:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "term": {
+      "tags.keyword": "Meat"
+    }
+  }
+}</code></pre>
+
+Nome como Tomato ou Paste:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "terms": {
+      "name.keyword": ["Tomato", "Paste"]
+    }
+  }
+}</code></pre>
+
+Categoria começando como past:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "wildcard": {
+      "tags.keyword": "Past?"
+    }
+  }
+}</code></pre>
+
+Nome que contenha ao menos um número:
+
+<pre><code>GET /products/_search
+{
+  "query": {
+    "regexp": {
+      "name": "[0-9]+"
+    }
+  }
+}</code></pre>
+
+**Full text queries:**
+
+Por padrão o operador para consulta será *OR*, ou seja, não necessita ter todas palavras da sentença
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "match": {
+      "title": "Recipes with pasta or spaghetti"
+    }
+  }
+}</code></pre>
+
+Podemos mudar o padrão para o operador *AND*
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "Recipes with pasta or spaghetti",
+        "operator": "and"
+      }
+    }
+  }
+}</code></pre>
+
+Em consultas que utilizam *match* a ordem que os termos aparecem na sentença não importa.
+
+Quando a ordem das palavras importa pode ser utilizado *match_phrase*
+
+<pre><code>GET /recite/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "spaghetti puttanesca"
+    }
+  }
+}</code></pre>
+
+Buscando por múltiplos campos:
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "pasta",
+      "fields": ["title", "description"]
+    }
+  }
+}</code></pre>
+
+**Boolean queries:**
+
+Receitas com ingrediente parmesão, sem tuna como ingrediente, tempo de preparo menor ou igual a 15 minutos. A receita ter salsinha aumenta a relevância de um documento:
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "ingredients.name": "parmesan"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {
+            "ingredients.name": "tuna"
+          }
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "ingredients.name": "parsley"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "range": {
+            "preparation_time_minutes": {
+              "lte": 15
+            }
+          }
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+
+Exibindo no resultado quais cláusulas foram encontradas em um documento:
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "ingredients.name": {
+              "query": "parmesan",
+              "_name": "parmesan_must"
+            }
+          }
+        },
+      ],
+      "must_not": [
+        {
+          "match": {
+            "ingredients.name": {
+              "query": "tuna",
+              "_name": "tuna_must_not"
+            }
+          }
+        }
+      ],
+    }
+  }
+}</code></pre>
+
+Se uma bool query contém pelo menos uma cláusala *should* e não possui nenhum *filter* ou *must* pelo menos uma das cláusulas de *should* deve ser atendida, caso tenha algum *filter* ou *must* a claúsala *should* não necessariamente precisa ser atendida. Esse comportamento pode ser alterado adicionando *minimum_should_match*.
+
+Deve conter tuna ou parmesão e ter 30 minutos de tempo de preparo:
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "bool": {
+      "minimum_should_match": 1,
+      "should": [
+        {
+          "match": {
+            "title": {
+              "query": "tuna",
+              "_name": "should_tuna"
+            }
+          }
+        },
+        {
+          "match": {
+            "title": {
+              "query": "parmesan",
+              "_name": "should_parmesan"
+            }
+          }
+        }
+      ],
+      "filter": [
+        {
+          "term": {
+            "preparation_time_minutes": 30
+          }
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+Data de captura maior ou igual a 01/06/2020 e portal igual a 160:
+
+<pre><code>GET busca/_search
+{
+   "query":{
+      "bool":{
+         "must":[
+            {
+               "range":{
+                  "dataCaptura":{
+                     "gte": "01/06/2020"
+                  }
+               }
+            },
+            {
+               "term":{
+                  "portal": 160
+               }
+            }
+         ]
+      }
+   }
+}</code></pre>
+
