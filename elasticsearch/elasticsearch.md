@@ -1115,3 +1115,435 @@ Data de captura maior ou igual a 01/06/2020 e portal igual a 160:
    }
 }</code></pre>
 
+**Nested mapping:**
+
+<pre><code>PUT /department
+{
+  "mappings": {
+    "properties": {
+      "name": {
+        "type": "text"
+      },
+      "employees": {
+        "type": "nested"
+      }
+    }
+  }
+}</code></pre>
+
+Consulta em um array de objetos, *nested*: 
+
+<pre><code>GET /department/_search
+{
+  "query": {
+    "nested": {
+      "path": "employees",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "employees.position": "intern"
+              }
+            },
+            {
+              "term": {
+                "employees.gender.keyword": "F"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}</code></pre>
+
+**Joins:**
+
+Definindo tipo join no mapping: 
+
+<pre><code>PUT /department/_mapping
+{
+  "properties": {
+    "join_field": { 
+      "type": "join",
+      "relations": {
+        "department": "employee"
+      }
+    }
+  }
+}</code></pre>
+
+Inserindo documentos com relação de join:
+
+<pre><code>PUT /department/_doc/1
+{
+  "name": "Department",
+  "join_field": "department"
+}</code></pre>
+
+Adicionando empregados para um departamento:
+
+<pre><code>PUT /department/_doc?routing=1
+{
+  "name": "Bo Andersen",
+  "age": 28,
+  "gender": "M"
+  "join_field": {
+    "name": "employee",
+    "parent": 1
+  }
+}</code></pre>
+
+Buscando empregados pelo ID do pai da relação de join:
+
+<pre><code>GET /department/_doc
+{
+  "query": {
+    "parent_id": {
+      "type": "employee",
+      "id: 1
+    }
+  }
+}</code></pre>
+
+Buscando empregados por uma consulta no pai da relação de join:
+
+<pre><code>GET /department/_search
+{
+  "query": {
+    "has_parent": {
+      "parent_type": "department",
+      "query": {
+        "term": {
+          "name.keyword": "department"
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Buscando departamento pelo empregado:
+
+<pre><code>GET /department/_search
+{
+  "query": {
+    "has_child": {
+      "type": "employee",
+      "quey": {
+        "bool": {
+          "must": [
+            {
+              "range": {
+                "age": {
+                  "gte": 50
+                }
+              }
+            }
+          ],
+          "should": [
+            {
+              "term": {
+                "gender.keyword": "M"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Definindo quais campos do documento deve ser retornados:
+
+<pre><code>GET /recipe/_search
+{
+  "_source": {
+    "includes": ["created", "title"],
+    "excludes": "ingredients.name"
+  },
+  "query": {
+    "match": {
+      "title": "pasta"
+    }
+  }
+}</code></pre>
+
+Alterando quantidade de documentos retornados:
+
+<pre><code>GET /recipe/_search
+{
+  "size": 20,
+  "query": {
+    "match": {
+      "title": "pasta"
+    }
+  }
+}</code></pre>
+
+Paginação de documentos:
+
+<pre><code>GET /recipe/_search
+{
+  "size": 1,
+  "from": 3,
+  "query": {
+    "match": {
+      "title": "pasta"
+    }
+  }
+}</code></pre>
+
+Ordenando resultado:
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    { "preparation_time_minutes": "desc" },
+    { "created": "desc" }
+  ]
+}</code></pre>
+
+Ordenando pela média
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "ratings": {
+        "order": "desc",
+        "mode": "avg"
+      }
+    }
+  ]
+}</code></pre>
+
+
+Filtros:
+
+<pre><code>GET /recipe/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "pasta"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "range": {
+            "preparation_time_minutes": {
+              "lte": 15
+            }
+          }
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+**Agregações:**
+
+Existem três tipos de agregações no Elasticsearch. Métrica, destinado a agregações de cálculo de métricas como soma, média dos valores de um campo. Bucket, agregações que agrupam documentos baseado em algum campo ou critério. Pipeline que pegam a entrada a partir de outras agregações.
+
+Define um objeto com as agregações em cima do campo *total_amount* de todos documentos do índice:
+
+<pre><code>GET /order/_search
+{
+  "size": 0,
+  "aggs": {
+    "total_sales": {
+      "sum": {
+        "field": "total_amount"
+      }
+    },
+    "avg_sale": {
+      "avg": {
+        "field": "total_amount"
+      }
+    },
+    "min_sale": {
+      "min": {
+        "field": "total_amount"
+      }
+    },
+    "max_sale": {
+      "max": {
+        "field": "total_amount"
+      }
+    }
+  }
+}</code></pre>
+
+Agrupando por status:
+
+<pre><code>GET /order/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status"
+      }
+    }
+  }
+}</code></pre>
+
+Agrupando por status e trazendo o valor de média, soma, mínimo, máximo e quantidade:
+
+<pre><code>GET /order/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status"
+      },
+      "aggs": {
+        "status_stats": {
+          "field": "total_amount"
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Agrupando por status e com quantidade total maior ou igual a cem e trazendo o valor de média, soma, mínimo, máximo e quantidade:
+
+<pre><code>GET /order/_search
+{
+  "size": 0,
+  "query": {
+    "range": {
+      "total_amount": {
+        "gte": 100
+      }
+    }
+  },
+  "aggs": {
+    "status_terms": {
+      "terms": {
+        "field": "status"
+      },
+      "aggs": {
+        "status_stats": {
+          "field": "total_amount"
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Agregação roda dentro do contexto do filtro.
+
+<pre><code>GET /order/_search
+{
+  "size": 0,
+  "aggs": {
+    "low_value": {
+      "filter": {
+        "range": {
+          "total_amount": {
+            "lt": 50
+          }
+        }
+      },
+      "aggs": {
+        "avg_amount": {
+          "avg": {
+            "field": "total_amount"
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Criando buckets por período:
+
+<pre><code>GET /order/_search
+{
+  "size": 0,
+  "aggs": {
+    "purched_ranges": {
+      "date_range": {
+        "field": "purchased_at",
+        "format": "yyyy-MM-dd",
+        "ranges": [
+          {
+            "from": "2016-01-01",
+            "to": "2016-01-01||+6M",
+            "key": "firs_half"
+          },
+          {
+            "from": "2016-01-01",
+            "to": "2016-01-01||+1y",
+            "key": "second_half"
+          }
+        ]
+      },
+      "aggs": {
+        "buckets_stats": {
+          "stats": {
+            "field": "total_amount"
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+Busca por proximidade:
+
+<pre><code>GET /proximity/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": {
+        "query": "spicy sauce",
+        "phrase_slop": 5
+      }
+    }
+  }
+}</code></pre>
+
+Lidando com erros de escrita, <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html">*fuziness*</a>:
+
+<pre><code>GET /product/_search
+{
+  "query": {
+    "match": {
+      "name": {
+        "query": "l0bster",
+        "fuziness": "auto"
+      }
+    } 
+  }
+}</code></pre>
+
+Grifando palavras da consulta, <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/highlighting.html"> highlight </a>:
+
+<pre><code>GET /highlighting/_search
+{
+  "query": {
+    "match": {
+      "description": "Elasticsearch story"
+    }
+  },
+  "highlight": {
+    "pre_tags": [ "< strong>" ],
+    "post_tags": [ "< /strong>" ]
+    "fields": {
+      "description": {}
+    }
+  }
+}</code></pre>
