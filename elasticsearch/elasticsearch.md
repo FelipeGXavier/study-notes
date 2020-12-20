@@ -1547,3 +1547,32 @@ Grifando palavras da consulta, <a href="https://www.elastic.co/guide/en/elastics
     }
   }
 }</code></pre>
+
+**Query string:** Retorna documentos com base em uma string de consulta fornecida, usando um analisador com uma sintaxe estrita. Esta consulta usa uma sintaxe para analisar e dividir a string de consulta fornecida com base em operadores, como AND ou NOT. A consulta analisa cada texto dividido de forma independente antes de retornar os documentos correspondentes.
+
+<pre><code>GET /teste/_search
+{
+  {
+   "query":{
+      "query_string":{
+         "query":"(*cabo* AND (*aluminado* OR *cobreado*))",
+         "fields":[
+            "objeto"
+         ]
+      }
+   },
+   "highlight":{
+      "fields":{
+         "objeto":{
+            
+         }
+      },
+      "pre_tags":[
+         "< mark>"
+      ],
+      "post_tags":[
+         "</ mark>"
+      ]
+   }
+}
+}</code></pre>
