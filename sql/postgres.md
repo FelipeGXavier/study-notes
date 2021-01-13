@@ -320,3 +320,25 @@ Para fazer backup de um banco para arquivo:
 ``pg_dump name_of_database > name_of_backup_file``  
 Para restaurar um backup para um banco (banco deve estar criado nessa etapa):  
 ``psql empty_database < backup_file``
+
+## Sessões
+
+Cada vez que um usuário se conecta ao banco para realizar uma sessão é estabelecida. Casa a conexão com o banco não seja fechada ela ficará ativa no banco de dados e depois do seu uso permanecerá em espera, *idle session*. 
+
+Exibe as conexões ativas no momento:
+
+<pre><code>SELECT 
+    pid
+    ,datname
+    ,usename
+    ,application_name
+    ,client_hostname
+    ,client_port
+    ,backend_start
+    ,query_start
+    ,query
+    ,state
+FROM pg_stat_activity
+WHERE state = 'active';</code></pre>
+
+O gerenciamento de sessões e pool pode ser gerenciado por outro software como PgBouncer 
