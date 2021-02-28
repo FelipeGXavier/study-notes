@@ -1,0 +1,11 @@
+**Client Credentials**: Normalmente utilizado em relações "machine-to-machine", um endpoint é requisitado passando o client_id e client_secret que retorna um access_token para uso. Exemplo.
+
+**Authorization code**: Fluxo mais comum do OAuth 2, numa aplicação client-server side o client é requisitado para consentir acesso à suas informações a partir de um terceiro. Após consentido é enviado um authorization_code de uso único na URL de callback, com o authorization_code é requisitado ao Authorization Server a validação do mesmo e caso verdadeiro retorna um access_token e refresh_token dependendo do fluxo. Com o access_token podemos requisitar informações para o Resource Server que retornará informações do Resource Owner que nesse caso é o usuário. O access_token expira normalmente em 1 hora então é necessário renovar com o refresh_token. 
+
+**Resource Owner Password Credentials**: Esse fluxo consiste em o usuário repassar suas credenciais de acesso diretamente na aplicação client, sendo assim suas credenciais de acesso estarão simultaneamente na aplicação do client e do que seria o OAuth provider. Esse fluxo não é seguro e só faz sentido em aplicações que são detentoras de um mesmo grupo. 
+
+**API KEY**: Quando queremos que usuários externos se comuniquem com a nossa API podemos utilizar a API KEY como a forma que o usuário se identifica nas aplicação. Normalmente é um token único gerado cada o client e pode ser utilizado como parâmetro na URL, header ou body, através dele podemos medir quais recursos o client tem acesso assim como limite de requisições por exemplo. 
+
+Exemplo de integração com OAuth.
+
+Sejam duas aplicações, APP1 e APP2. APP1 é a aplicação principal onde o usuário possui efetivamente uma conta. A autentaticação da conta pode ser por qualquer meio, Basic, JWT, Session. O APP2 quer realizar uma integração como APP1 para ter acesso a alguns recursos do usuário em sua aplicação. Para tal o APP1 funciona como um OAuth Provider, o APP2 pergunta se o usuário consente seu acesso no APP1 e caso sim será feito o uso do authorization code para obter um access token e refresh token para obter recursos do APP1 pelo Resource Server. 
